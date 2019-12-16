@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	generator "github.com/joeandaverde/sql-gen-go"
 	"io"
 	"io/ioutil"
 	"os"
@@ -12,14 +11,15 @@ import (
 	"strings"
 
 	"github.com/iancoleman/strcase"
+	"github.com/joeandaverde/sql-gen-go"
 )
 
-func findSQLFiles(root string) map[string][]generator.SQLFile {
+func findSQLFiles(root string) (map[string][]generator.SQLFile, error) {
 	tinySQLFiles := make(map[string][]generator.SQLFile)
-	absPath, err := filepath.Abs(root)
 
+	absPath, err := filepath.Abs(root)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	sqlFiles, _ := filepath.Glob(absPath + "/**/*.sql")
@@ -37,15 +37,14 @@ func findSQLFiles(root string) map[string][]generator.SQLFile {
 		sqlKey := strcase.ToCamel(strings.Join(pathParts, "_"))
 
 		content, err := ioutil.ReadFile(path)
-
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 
 		sqlSource := string(content)
 		newSQL, params, err := generator.Query([]byte(sqlSource), generator.DOLLAR, true)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 
 		tinyParams := makeParams(params)
@@ -67,7 +66,7 @@ func findSQLFiles(root string) map[string][]generator.SQLFile {
 		}
 	}
 
-	return tinySQLFiles
+	return tinySQLFiles, nil
 }
 
 func makeParams(params []string) map[string]generator.SQLParam {
@@ -81,8 +80,8 @@ func makeParams(params []string) map[string]generator.SQLParam {
 	return result
 }
 
-func realMain() {
-	root := flag.String("root", ".", "root path to find sql files")
+func runGenerator() {
+	root := flag.String("root", ".", "root path to recursively find sql files")
 	out := flag.String("out", "stdout", "output for generated go")
 	perms := flag.String("perms", "0644", "permissions for new file")
 	flag.Parse()
@@ -93,7 +92,7 @@ func realMain() {
 	} else {
 		perm, err := strconv.ParseInt(*perms, 8, 32)
 		if err != nil {
-			fmt.Println("incorrect permission format, expected octal string")
+			fmt.Println("invalid permission format: expected octal string")
 			os.Exit(1)
 		}
 
@@ -107,7 +106,12 @@ func realMain() {
 		writer = file
 	}
 
-	files := findSQLFiles(*root)
+	files, err := findSQLFiles(*root)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
 	generatedCode := generator.Go(files)
 
 	if _, err := writer.Write([]byte(generatedCode)); err != nil {
@@ -117,5 +121,5 @@ func realMain() {
 }
 
 func main() {
-	realMain()
+	runGenerator()
 }

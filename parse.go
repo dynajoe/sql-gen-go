@@ -48,7 +48,7 @@ const (
 	doubleQuote  = '"'
 )
 
-// Query parses a sql query, rewrites it to include bind parameters and returns indexed representation of params, and extracts all parameters
+// Query parses a sql query and rewrites it to include bind parameters
 func Query(qs []byte, bindType int, combineDuplicate bool) (string, []string, error) {
 	var result strings.Builder
 	var params []string
