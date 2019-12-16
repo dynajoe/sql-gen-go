@@ -28,10 +28,10 @@ func Go(tinySQLFiles map[string][]SQLFile) string {
 
 	err := mapTemplate.Execute(source, struct {
 		PackageName string
-		Roots map[string][]SQLFile
+		Roots       map[string][]SQLFile
 	}{
 		PackageName: "sql",
-		Roots: tinySQLFiles,
+		Roots:       tinySQLFiles,
 	})
 
 	if err != nil {

@@ -44,6 +44,10 @@ func findSQLFiles(root string) map[string][]generator.SQLFile {
 
 		sqlSource := string(content)
 		newSQL, params, err := generator.Query([]byte(sqlSource), generator.DOLLAR, true)
+		if err != nil {
+			panic(err)
+		}
+
 		tinyParams := makeParams(params)
 
 		tinySQL := generator.SQLFile{
