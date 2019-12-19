@@ -6,7 +6,6 @@ import (
 	"go/format"
 	"io"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -111,7 +110,7 @@ func findSQLFiles(root string) (map[string][]SQLFile, error) {
 		}
 
 		sqlSource := string(content)
-		newSQL, params, err := Query([]byte(sqlSource), DOLLAR, true)
+		newSQL, params, err := Parse([]byte(sqlSource), DOLLAR, true)
 		if err != nil {
 			return nil, err
 		}

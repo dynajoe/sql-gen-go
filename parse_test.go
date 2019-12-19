@@ -102,17 +102,17 @@ func TestCompileQuery(t *testing.T) {
 			}
 		}
 
-		qd, _, _ := Query([]byte(test.Q), DOLLAR, false)
+		qd, _, _ := Parse([]byte(test.Q), DOLLAR, false)
 		if qd != test.D {
 			t.Errorf("\nexpected: `%s`\ngot:      `%s`", test.D, qd)
 		}
 
-		qt, _, _ := Query([]byte(test.Q), AT, false)
+		qt, _, _ := Parse([]byte(test.Q), AT, false)
 		if qt != test.T {
 			t.Errorf("\nexpected: `%s`\ngot:      `%s`", test.T, qt)
 		}
 
-		qq, _, _ := Query([]byte(test.Q), NAMED, false)
+		qq, _, _ := Parse([]byte(test.Q), NAMED, false)
 		if qq != test.N {
 			t.Errorf("\nexpected: `%s`\ngot:      `%s`\n(len: %d vs %d)", test.N, qq, len(test.N), len(qq))
 		}
@@ -148,7 +148,7 @@ func TestNamedQueryWithoutParams(t *testing.T) {
 	}
 
 	for _, q := range queries {
-		qr, names, err := Query([]byte(q), QUESTION, false)
+		qr, names, err := Parse([]byte(q), QUESTION, false)
 		if err != nil {
 			t.Error(err)
 		}
