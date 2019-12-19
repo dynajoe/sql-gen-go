@@ -85,7 +85,7 @@ func TestCompileQuery(t *testing.T) {
 	}
 
 	for _, test := range table {
-		qr, names, err := Query([]byte(test.Q), QUESTION, false)
+		qr, names, err := Parse([]byte(test.Q), QUESTION, false)
 		if err != nil {
 			t.Error(err)
 		}
