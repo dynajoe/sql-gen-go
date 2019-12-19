@@ -3,19 +3,15 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"strconv"
-	"strings"
-
-	"github.com/iancoleman/strcase"
 	"github.com/joeandaverde/sql-gen-go"
+	"io"
+	"os"
+	"strconv"
 )
 
 func runGenerator() {
 	root := flag.String("root", ".", "root path to recursively find sql files")
+	pkgName := flag.String("package", "sql", "package name for generated go file")
 	out := flag.String("out", "stdout", "output for generated go")
 	perms := flag.String("perms", "0644", "permissions for new file")
 	flag.Parse()
@@ -40,15 +36,8 @@ func runGenerator() {
 		writer = file
 	}
 
-	files, err := findSQLFiles(*root)
+	err := generator.Run(*pkgName, *root, writer)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
-	generatedCode := generator.generateGoCode(files)
-
-	if _, err := writer.Write([]byte(generatedCode)); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
