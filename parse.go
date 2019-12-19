@@ -9,8 +9,7 @@ import (
 
 // Bindvar types supported by Rebind, BindMap and BindStruct.
 const (
-	UNKNOWN = iota
-	QUESTION
+	QUESTION = iota
 	DOLLAR
 	NAMED
 	AT
@@ -48,8 +47,16 @@ const (
 	doubleQuote  = '"'
 )
 
-// Query parses a sql query and rewrites it to include bind parameters
-func Query(qs []byte, bindType int, combineDuplicate bool) (string, []string, error) {
+// Parse parses a sql query and rewrites it to include bind parameters
+// if combineDuplicateParameters is true then a query with the same bind name
+// repeated will be considered as taking only one parameter. e.g.
+//     SELECT * FROM foo WHERE id = :id OR id > :id
+// would be rewritten as
+//     SELECT * FROM foo where id = $1 OR id > $1
+// as opposed to
+//     SELECT * FROM foo where id = $1 OR id > $2
+// Note: bindType of QUESTION cannot have duplicate parameters combined.
+func Parse(query []byte, bindType int, combineDuplicateParams bool) (string, []string, error) {
 	var result strings.Builder
 	var params []string
 	paramLookup := make(map[string]int)
@@ -57,8 +64,8 @@ func Query(qs []byte, bindType int, combineDuplicate bool) (string, []string, er
 	addParam := func(paramName string) {
 		var paramIndex int
 
-		// Question bindtype is not compatible with combining duplicates
-		if combineDuplicate && bindType != QUESTION {
+		// Question bindType is not compatible with combining duplicates
+		if combineDuplicateParams && bindType != QUESTION {
 			if i, ok := paramLookup[paramName]; ok {
 				paramIndex = i
 			} else {
@@ -72,11 +79,10 @@ func Query(qs []byte, bindType int, combineDuplicate bool) (string, []string, er
 		}
 
 		switch bindType {
-		// oracle only supports named type bind vars even for positional
 		case NAMED:
 			result.WriteByte(':')
 			result.WriteString(paramName)
-		case QUESTION, UNKNOWN:
+		case QUESTION:
 			result.WriteByte('?')
 		case DOLLAR:
 			result.WriteByte('$')
@@ -103,15 +109,15 @@ func Query(qs []byte, bindType int, combineDuplicate bool) (string, []string, er
 	}
 
 	var previousRune rune
-	maxIndex := len(qs)
+	maxIndex := len(query)
 
 	for byteIndex := 0; byteIndex < maxIndex; {
-		currentRune, runeWidth := utf8.DecodeRune(qs[byteIndex:])
+		currentRune, runeWidth := utf8.DecodeRune(query[byteIndex:])
 		nextRuneByteIndex := byteIndex + runeWidth
 
 		nextRune := utf8.RuneError
 		if nextRuneByteIndex < maxIndex {
-			nextRune, _ = utf8.DecodeRune(qs[nextRuneByteIndex:])
+			nextRune, _ = utf8.DecodeRune(query[nextRuneByteIndex:])
 		}
 
 		writeCurrentRune := true

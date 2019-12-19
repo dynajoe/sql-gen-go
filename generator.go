@@ -2,8 +2,14 @@ package generator
 
 import (
 	"bytes"
+	"fmt"
 	"go/format"
+	"io"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"sort"
+	"strings"
 	"text/template"
 
 	"github.com/iancoleman/strcase"
@@ -23,14 +29,33 @@ type SQLFile struct {
 	ReboundSQL string
 }
 
-func Go(tinySQLFiles map[string][]SQLFile) string {
+// Run finds all .sql files recursively starting at sqlRootDir, parses, and constructs
+// go code that is written to the underlying writer.
+func Run(packageName string, sqlRootDir string, writer io.Writer) error {
+	files, err := findSQLFiles(sqlRootDir)
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+
+	generatedCode := generateGoCode(packageName, files)
+
+	if _, err := writer.Write([]byte(generatedCode)); err != nil {
+		fmt.Println(err)
+		return err
+	}
+
+	return nil
+}
+
+func generateGoCode(packageName string, tinySQLFiles map[string][]SQLFile) string {
 	source := bytes.NewBufferString("")
 
 	err := mapTemplate.Execute(source, struct {
 		PackageName string
 		Roots       map[string][]SQLFile
 	}{
-		PackageName: "sql",
+		PackageName: packageName,
 		Roots:       tinySQLFiles,
 	})
 
@@ -45,6 +70,72 @@ func Go(tinySQLFiles map[string][]SQLFile) string {
 	}
 
 	return string(formattedBytes)
+}
+
+func makeParams(params []string) map[string]SQLParam {
+	result := make(map[string]SQLParam)
+	for i, p := range params {
+		result[p] = SQLParam{
+			Name:  p,
+			Index: i + 1,
+		}
+	}
+	return result
+}
+
+func findSQLFiles(root string) (map[string][]SQLFile, error) {
+	tinySQLFiles := make(map[string][]SQLFile)
+
+	absPath, err := filepath.Abs(root)
+	if err != nil {
+		return nil, err
+	}
+
+	sqlFiles, _ := filepath.Glob(absPath + "/**/*.sql")
+
+	for _, path := range sqlFiles {
+		relativePath := strings.Replace(path, absPath+string(filepath.Separator), "", 1)
+		relativePath = strings.Replace(relativePath, ".sql", "", 1)
+
+		pathParts := strings.Split(relativePath, string(filepath.Separator))
+
+		for i, p := range pathParts {
+			pathParts[i] = strcase.ToCamel(p)
+		}
+
+		sqlKey := strcase.ToCamel(strings.Join(pathParts, "_"))
+
+		content, err := ioutil.ReadFile(path)
+		if err != nil {
+			return nil, err
+		}
+
+		sqlSource := string(content)
+		newSQL, params, err := Query([]byte(sqlSource), DOLLAR, true)
+		if err != nil {
+			return nil, err
+		}
+
+		tinyParams := makeParams(params)
+
+		tinySQL := SQLFile{
+			Path:       path,
+			Name:       pathParts[1],
+			Key:        sqlKey,
+			Params:     tinyParams,
+			Content:    sqlSource,
+			ReboundSQL: newSQL,
+		}
+
+		if items, ok := tinySQLFiles[pathParts[0]]; ok {
+			tinySQLFiles[pathParts[0]] = append(items, tinySQL)
+		} else {
+			var thing []SQLFile
+			tinySQLFiles[pathParts[0]] = append(thing, tinySQL)
+		}
+	}
+
+	return tinySQLFiles, nil
 }
 
 func sortParams(p map[string]SQLParam) []SQLParam {
