@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/joeandaverde/sql-gen-go"
 	"io"
+	"io/ioutil"
 	"os"
 	"strconv"
 )
@@ -26,17 +27,24 @@ func runGenerator() {
 			os.Exit(1)
 		}
 
-		file, err := os.OpenFile(*out, os.O_WRONLY, os.FileMode(perm))
+		tempFile, err := ioutil.TempFile(os.TempDir(), "sql-gen")
+
 		if err != nil {
-			fmt.Println("unable to open file for writing")
+			fmt.Println(err)
 			os.Exit(1)
 		}
 
-		defer file.Close()
-		writer = file
+		defer func() {
+			_ = tempFile.Close()
+			_ = tempFile.Chmod(os.FileMode(perm))
+			_ = os.Rename(tempFile.Name(), *out)
+		}()
+
+		writer = tempFile
 	}
 
 	err := generator.Run(*pkgName, *root, writer)
+
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)

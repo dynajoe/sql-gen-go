@@ -159,14 +159,6 @@ var mapTemplate = template.Must(template.New("").Funcs(template.FuncMap{
 package {{ .PackageName }}
 
 {{- range $k, $v := .Roots }}
-type {{ ToLowerCamel $k }}Sql struct {
-	{{- range $v }}
-		{{ ToLowerCamel .Name }} string
-	{{- end }}
-}
-{{ end -}}
-
-{{- range $k, $v := .Roots }}
 {{- range $v }}
 type {{ $k }}{{ .Name }} struct {
 	{{- range $paramName, $_ := .Params }}
@@ -176,33 +168,14 @@ type {{ $k }}{{ .Name }} struct {
 {{ end }}
 {{ end -}}
 
-{{- range $k, $v := .Roots }}
-var {{ ToLowerCamel $k }} {{ ToLowerCamel $k }}Sql
-{{- end }}
-
-func init() {
-	{{- range $k, $v := .Roots }}
-	{{ ToLowerCamel $k }} = {{ ToLowerCamel $k }}Sql{
-		{{- range $v }}
-			{{ ToLowerCamel .Name }}: {{  printf "%q" .ReboundSQL }},
-		{{- end }}
-	}
-	{{ end -}}
-}
-
 {{ range $k, $v := .Roots }}
 {{- range $v }}
 func (p {{ $k }}{{ .Name }}) Build() (string, []interface{}) {
-	return {{ ToLowerCamel $k }}.{{ ToLowerCamel .Name }}, []interface{}{
+	return {{  printf "%q" .ReboundSQL }}, []interface{}{
 		{{- range $param := SortParams .Params }}
 		p.{{ ToCamel $param.Name }},
 		{{- end }}
 	}
-}
-
-func (p {{ $k }}{{ .Name }}) Select(db *sqlx.DB, dest interface{}) error {
-	rawSQL, params := p.Build()
-	return db.Select(dest, rawSQL, params...)
 }
 {{ end }}
 {{ end -}}
